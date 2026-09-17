@@ -1,4 +1,4 @@
-# Organik Gurme — Çok Kanallı Stok Senkron Aracı
+Çok Kanallı Stok Senkron Aracı
 
 Entegra benzeri, paketli/tekil ürün stoğunu **İkas + Trendyol + Hepsiburada** arasında
 anlık senkron tutan araç. Bir kanaldan satış olduğunda paket bileşenlerini düşer,
