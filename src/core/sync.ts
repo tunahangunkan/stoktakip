@@ -16,8 +16,6 @@ import { processOrder, deriveAffectedSkus, getSellableForChannels } from './bom'
 import { connectors } from '../channels';
 import { StockPushItem } from '../channels/types';
 
-// Tekilleri de tüm kanallara basmak istersen true yap (İkas yayımına güvenmiyorsan).
-const PUSH_SINGLES_TO_ALL = false;
 
 interface Listing {
   channel: Channel;
@@ -46,10 +44,9 @@ async function pushSkuToChannels(sku: string): Promise<void> {
   const listings = await getListings(sku);
 
   // Hangi kanallara basılacak?
-  const targetChannels: Channel[] =
-    type === 'bundle' || PUSH_SINGLES_TO_ALL
-      ? ['ikas', 'trendyol', 'hb']
-      : ['ikas'];
+  // MİMARİ: Araç yalnızca İkas'a basar. İkas kendi entegrasyonuyla
+  // Trendyol ve HB'ye yayar. Bu yüzden hedef her zaman sadece 'ikas'.
+  const targetChannels: Channel[] = ['ikas'];
 
   for (const listing of listings) {
     if (!targetChannels.includes(listing.channel)) continue;
