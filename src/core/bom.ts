@@ -69,11 +69,20 @@ export async function resolveInternalSku(
   channel: Channel,
   channelRef: string
 ): Promise<string | null> {
-  const rows = await sql`
+  // Önce channel_ref ile dene (Trendyol/HB doğrudan bu alanı kullanır).
+  const byRef = await sql`
     SELECT internal_sku FROM channel_listings
     WHERE channel = ${channel} AND channel_ref = ${channelRef}
   ` as { internal_sku: string }[];
-  return rows.length ? rows[0].internal_sku : null;
+  if (byRef.length) return byRef[0].internal_sku;
+
+  // Bulunamazsa barkod ile dene. İkas okuma tarafı barkod gönderir,
+  // ama channel_ref push için productId:variantId formatında olabilir.
+  const byBarcode = await sql`
+    SELECT internal_sku FROM channel_listings
+    WHERE channel = ${channel} AND barcode = ${channelRef}
+  ` as { internal_sku: string }[];
+  return byBarcode.length ? byBarcode[0].internal_sku : null;
 }
 
 // ------------------------------------------------------------
