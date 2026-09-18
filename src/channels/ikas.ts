@@ -112,3 +112,24 @@ export const ikasConnector: ChannelConnector = {
     }));
   },
 };
+
+// ------------------------------------------------------------
+// WEBHOOK KAYDI — İkas'a "sipariş oluşturulunca bana haber ver" der.
+// Panelde webhook ekranı olmadığı için bunu API ile kaydediyoruz.
+// scope: store/order/created ; endpoint: Vercel webhook adresimiz.
+// İkas, endpoint 200 dışında dönerse 3 kez dener sonra durur -> bizimki hep 200.
+// ------------------------------------------------------------
+export async function registerIkasWebhook(endpoint: string): Promise<any> {
+  const mutation = `
+    mutation {
+      saveWebhook(input: {
+        scopes: "store/order/created"
+        endpoint: "${endpoint}"
+      }) { id scope endpoint createdAt }
+    }`;
+  return await gql(mutation, {});
+}
+
+export async function listIkasWebhooks(): Promise<any> {
+  return await gql(`{ listWebhook { id scope endpoint deleted } }`, {});
+}
