@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // Hepsiburada sipariş webhook'u — POST /api/webhooks/hb
 // HB webhook'u PUT de gönderebilir; ikisini de kabul ediyoruz.
 // HMAC imza doğrulaması için ham gövdeyi (_rawBody) connector'a geçiriyoruz.

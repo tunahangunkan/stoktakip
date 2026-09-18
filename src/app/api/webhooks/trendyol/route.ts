@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // Trendyol sipariş webhook'u — POST /api/webhooks/trendyol
 import { NextRequest, NextResponse } from 'next/server';
 import { connectors } from '../../../../channels';

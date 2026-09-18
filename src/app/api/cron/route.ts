@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // Zamanlı görev iskeleti — GET /api/cron
 // ŞİMDİLİK: Trendyol/HB'ye basılan asenkron isteklerin (trackingId) sonucunu doğrular.
 // İLERİDE: yedek tarama (reconciliation) buraya eklenecek — webhook kaçan siparişleri yakalamak için.

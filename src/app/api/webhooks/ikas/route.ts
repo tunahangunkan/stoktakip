@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // İkas sipariş webhook'u — POST /api/webhooks/ikas
 import { NextRequest, NextResponse } from 'next/server';
 import { connectors } from '../../../../channels';
