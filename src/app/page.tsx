@@ -422,7 +422,7 @@ td { padding:14px 20px; border-bottom:1px solid #f3f1ed; font-size:14px; vertica
 tbody tr:last-child td { border-bottom:none; }
 tbody tr { transition:background .1s; } tbody tr:hover { background:#fafaf8; }
 .prodcell { display:flex; align-items:center; gap:12px; }
-.thumb { width:42px; height:42px; border-radius:9px; object-fit:contain; flex-shrink:0; background:#faf9f7; border:1px solid var(--line); padding:3px; }
+.thumb { width:42px; height:42px; border-radius:9px; object-fit:contain; flex-shrink:0; background:#ffffff; }
 .thumb.ph { display:grid; place-items:center; font-size:15px; font-weight:600; color:var(--olive-d); background:var(--olive-bg); border:none; }
 .pcol { min-width:0; }
 .pname { font-weight:550; }
