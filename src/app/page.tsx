@@ -35,6 +35,8 @@ export default function Panel() {
   const [recipe, setRecipe] = useState<{ name: string; sku: string; comps: any[] } | null>(null);
   const [toast, setToast] = useState<{ msg: string; kind: 'ok' | 'err' } | null>(null);
   const [navOpen, setNavOpen] = useState(false);
+  const [importPreview, setImportPreview] = useState<{ changes: any[]; skipped: number; file: File } | null>(null);
+  const [importing, setImporting] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ env: true, kayit: true, kanal: true });
 
   const load = useCallback(async () => {
@@ -64,6 +66,32 @@ export default function Panel() {
   async function openRecipe(sku: string, name: string) {
     const d = await fetch('/api/recipe?sku=' + sku).then(r => r.json());
     if (d.ok) setRecipe({ name, sku, comps: d.components });
+  }
+
+  function exportExcel() {
+    window.location.href = '/api/export';
+  }
+
+  async function onFilePick(e: any) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('mode', 'preview'); fd.append('file', file);
+    const d = await fetch('/api/import', { method: 'POST', body: fd }).then(r => r.json());
+    if (d.ok) setImportPreview({ changes: d.changes, skipped: d.skipped, file });
+    else showToast('Dosya okunamadı: ' + d.error, 'err');
+  }
+
+  async function applyImport() {
+    if (!importPreview) return;
+    setImporting(true);
+    const fd = new FormData();
+    fd.append('mode', 'apply'); fd.append('file', importPreview.file);
+    const d = await fetch('/api/import', { method: 'POST', body: fd }).then(r => r.json());
+    setImporting(false);
+    if (d.ok) { showToast(`${d.applied} ürün güncellendi — ${d.pushedOk}/${d.pushedTotal} İkas'a işlendi`); setImportPreview(null); load(); }
+    else showToast('Uygulanamadı: ' + d.error, 'err');
   }
 
   const singles = products.filter(p => p.type === 'single');
@@ -148,7 +176,15 @@ export default function Panel() {
         <div className="crumb">{isLedger ? 'Kayıtlar' : 'Envanter'}</div>
         <div className="titlerow">
           <h1>{isLedger ? 'Hareket Geçmişi' : 'Ürünler'}</h1>
-          <button className="btn" onClick={load}><Ic n="refresh" /><span>Yenile</span></button>
+          <div className="head-btns">
+            {!isLedger && <>
+              <button className="btn" onClick={exportExcel}><Ic n="download" /><span>Excel İndir</span></button>
+              <label className="btn"><Ic n="upload" /><span>Excel Yükle</span>
+                <input type="file" accept=".xlsx,.xls" hidden onChange={onFilePick} />
+              </label>
+            </>}
+            <button className="btn" onClick={load}><Ic n="refresh" /><span>Yenile</span></button>
+          </div>
         </div>
 
         
@@ -203,6 +239,47 @@ export default function Panel() {
           </>
         )}
       </main>
+
+      {importPreview && (
+        <div className="overlay" onClick={() => !importing && setImportPreview(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <div><h3>Toplu stok güncelleme</h3>
+                <span className="muted" style={{fontSize:13}}>{importPreview.changes.length} ürün değişecek · {importPreview.skipped} satır atlandı</span>
+              </div>
+              <button className="ib sm" aria-label="Kapat" disabled={importing} onClick={() => setImportPreview(null)}><Ic n="x" /></button>
+            </div>
+            {importPreview.changes.length === 0 ? (
+              <p className="modal-note">Değişen bir stok yok. Dosyadaki değerler mevcut stoklarla aynı.</p>
+            ) : (
+              <>
+                <p className="modal-note">Aşağıdaki tekil ürünlerin fiziksel stoğu güncellenip İkas'a basılacak. Paketler otomatik hesaplanır.</p>
+                <div className="tscroll" style={{maxHeight:'46vh',overflowY:'auto'}}>
+                  <table className="inner">
+                    <thead><tr><th>Ürün</th><th className="r">Eski</th><th className="r">Yeni</th><th className="r">Fark</th></tr></thead>
+                    <tbody>
+                      {importPreview.changes.map((c:any) => (
+                        <tr key={c.sku}>
+                          <td>{c.name}<div className="mono muted">{c.sku}</div></td>
+                          <td className="r num">{c.old}</td>
+                          <td className="r num">{c.new}</td>
+                          <td className={'r num ' + (c.new-c.old<0?'neg':'pos')}>{c.new-c.old>0?'+':''}{c.new-c.old}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:16}}>
+                  <button className="btn" disabled={importing} onClick={() => setImportPreview(null)}>İptal</button>
+                  <button className="btn-p" style={{padding:'0 18px',height:38,borderRadius:9}} disabled={importing} onClick={applyImport}>
+                    {importing ? 'Uygulanıyor…' : `${importPreview.changes.length} değişikliği uygula`}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {recipe && (
         <div className="overlay" onClick={() => setRecipe(null)}>
@@ -311,6 +388,8 @@ function Ic({ n }: { n: string }) {
     swap: <><path d="M7 8h13l-3-3" /><path d="M17 16H4l3 3" /></>,
     search: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></>,
     refresh: <><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 4v5h-5" /></>,
+    download: <><path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M4 21h16" /></>,
+    upload: <><path d="M12 15V3" /><path d="M7 8l5-5 5 5" /><path d="M4 21h16" /></>,
     filter: <><path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" /></>,
     menu: <><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></>,
     x: <><path d="M6 6l12 12" /><path d="M18 6L6 18" /></>,
@@ -385,6 +464,8 @@ svg { width:1em; height:1em; display:block; }
 .btn:hover { background:#f7f6f4; border-color:var(--line-2); }
 .btn.sm { height:32px; padding:0 12px; font-size:12.5px; }
 .btn.ghost { box-shadow:none; }
+.head-btns { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.btn label,label.btn { cursor:pointer; }
 .tabs { display:flex; gap:2px; margin-top:18px; border-bottom:1px solid var(--line); }
 .tab { display:flex; align-items:center; gap:7px; border:none; background:none; padding:11px 13px; font-size:14px; font-weight:500; color:var(--sec); cursor:pointer; margin-bottom:-1px; }
 .tab svg { font-size:16px; }
