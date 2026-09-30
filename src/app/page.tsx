@@ -146,9 +146,7 @@ export default function Panel() {
           <button className="uc-collapse" aria-label="Kapat" onClick={() => setNavOpen(false)}><Ic n="collapse" /></button>
         </div>
 
-        <div className="s-search">
-          <Ic n="search" /><input placeholder="Ara" value={q} onChange={e => setQ(e.target.value)} /><kbd>⌘F</kbd>
-        </div>
+        
 
         <nav>
           <GroupH label="Envanter" open={openGroups.env} onClick={() => tg('env')} />
@@ -173,7 +171,6 @@ export default function Panel() {
 
       {/* MAIN */}
       <main className="main">
-        <div className="crumb">{isLedger ? 'Kayıtlar' : 'Envanter'}</div>
         <div className="titlerow">
           <h1>{isLedger ? 'Hareket Geçmişi' : 'Ürünler'}</h1>
           <div className="head-btns">
@@ -189,12 +186,7 @@ export default function Panel() {
 
         
 
-        <div className="section-top">
-          <h2 className="section-h">{isLedger ? 'Stok hareketleri' : 'Tüm ürünler'}</h2>
-          <div className="searchbox">
-            <Ic n="search" /><input placeholder="Ara…" value={q} onChange={e => setQ(e.target.value)} />
-          </div>
-        </div>
+        
 
         {/* özet kartları */}
         {!isLedger && (
@@ -231,11 +223,23 @@ export default function Panel() {
           </div>
         ) : (
           <>
-            {showSingles && <ProductGroup title="Tekil Ürünler" rows={visSingles} editing={editing} editVal={editVal} saving={saving}
-              setEditing={setEditing} setEditVal={setEditVal} saveStock={saveStock} openRecipe={openRecipe} />}
-            {showBundles && <ProductGroup title="Paketler" rows={visBundles} editing={editing} editVal={editVal} saving={saving}
-              setEditing={setEditing} setEditVal={setEditVal} saveStock={saveStock} openRecipe={openRecipe} />}
-            {!showSingles && !showBundles && <div className="gcard center"><span>Eşleşen ürün yok.</span></div>}
+            {view === 'all' || view === 'low' ? (
+              visible.length > 0
+                ? <ProductGroup title={view==='low' ? 'Düşük Stok' : 'Tüm Ürünler'} rows={visible} editing={editing} editVal={editVal} saving={saving}
+                    setEditing={setEditing} setEditVal={setEditVal} saveStock={saveStock} openRecipe={openRecipe} />
+                : <div className="gcard center"><span>Eşleşen ürün yok.</span></div>
+            ) : (
+              <>
+                {view === 'single' && (visSingles.length > 0
+                  ? <ProductGroup title="Tekil Ürünler" rows={visSingles} editing={editing} editVal={editVal} saving={saving}
+                      setEditing={setEditing} setEditVal={setEditVal} saveStock={saveStock} openRecipe={openRecipe} />
+                  : <div className="gcard center"><span>Eşleşen ürün yok.</span></div>)}
+                {view === 'bundle' && (visBundles.length > 0
+                  ? <ProductGroup title="Paketler" rows={visBundles} editing={editing} editVal={editVal} saving={saving}
+                      setEditing={setEditing} setEditVal={setEditVal} saveStock={saveStock} openRecipe={openRecipe} />
+                  : <div className="gcard center"><span>Eşleşen ürün yok.</span></div>)}
+              </>
+            )}
           </>
         )}
       </main>
@@ -314,7 +318,7 @@ function ProductGroup({ title, rows, editing, editVal, saving, setEditing, setEd
       </div>
       <div className="tscroll">
         <table>
-          <thead><tr><th>Ürün</th><th>Tip</th><th className="r">Fiziksel</th><th className="r">Satılabilir</th><th>Durum</th><th className="r"></th></tr></thead>
+          <thead><tr><th>Ürün</th><th>Tip</th><th className="r">Stok</th><th>Durum</th><th className="r"></th></tr></thead>
           <tbody>
             {rows.map((p: Product) => {
               const st = statusOf(p.sellable);
@@ -325,7 +329,6 @@ function ProductGroup({ title, rows, editing, editVal, saving, setEditing, setEd
                     <div className="pcol"><div className="pname">{p.name}</div><div className="mono muted">{p.sku}</div></div>
                   </div></td>
                   <td><span className={'tag tag-' + p.type}>{p.type === 'bundle' ? 'Paket' : 'Tekil'}</span></td>
-                  <td className="r num">{p.type === 'bundle' ? <span className="dash">—</span> : p.physical_stock}</td>
                   <td className="r num"><span className={p.sellable <= 5 ? 'v-low' : ''}>{p.sellable}</span></td>
                   <td><span className={'st st-' + st.key}>{st.label}</span></td>
                   <td className="r">
