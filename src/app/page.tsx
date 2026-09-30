@@ -172,7 +172,7 @@ export default function Panel() {
       {/* MAIN */}
       <main className="main">
         <div className="titlerow">
-          <h1>{isLedger ? 'Hareket Geçmişi' : 'Ürünler'}</h1>
+          {isLedger ? <h1>Hareket Geçmişi</h1> : <div />}
           <div className="head-btns">
             {!isLedger && <>
               <button className="btn" onClick={exportExcel}><Ic n="download" /><span>Excel İndir</span></button>
@@ -460,7 +460,7 @@ svg { width:1em; height:1em; display:block; }
 /* MAIN */
 .main { padding:26px 30px 60px; min-width:0; }
 .crumb { font-size:13px; color:var(--mut); margin-bottom:6px; }
-.titlerow { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.titlerow { display:flex; align-items:center; justify-content:flex-end; gap:16px; min-height:40px; }
 .titlerow h1 { font-size:36px; font-weight:420; letter-spacing:-.02em; }
 .btn { display:flex; align-items:center; gap:7px; height:38px; padding:0 15px; border:1px solid var(--line); background:var(--card); border-radius:9px; font-size:13.5px; cursor:pointer; color:var(--ink); font-weight:550; box-shadow:var(--sh-c); white-space:nowrap; }
 .btn svg { font-size:16px; color:var(--sec); }
@@ -481,7 +481,7 @@ svg { width:1em; height:1em; display:block; }
 .searchbox svg { font-size:16px; color:var(--mut); }
 .searchbox input { border:none; outline:none; font-size:13.5px; width:100%; background:none; color:var(--ink); }
 
-.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:20px 0; }
 .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; box-shadow:var(--sh-c); }
 .stat-top { display:flex; align-items:center; gap:9px; margin-bottom:10px; }
 .stat-ic { width:30px; height:30px; border-radius:8px; background:#f3f2ef; color:var(--sec); display:grid; place-items:center; font-size:16px; }
