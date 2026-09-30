@@ -122,23 +122,18 @@ export async function processOrder(
   lineItems: OrderLineItem[],
   rawPayload?: unknown
 ): Promise<{ processed: boolean; changedPhysicalSkus: string[] }> {
-  // 1) idempotency kontrolü — aynı siparişi iki kez işleme
+  // 1) idempotency
   const existing = await sql`
     SELECT 1 FROM orders_processed
     WHERE channel = ${channel} AND channel_order_id = ${channelOrderId}
   ` as unknown[];
-  if (existing.length > 0) {
-    return { processed: false, changedPhysicalSkus: [] };
-  }
+  if (existing.length > 0) return { processed: false, changedPhysicalSkus: [] };
 
   const changed = new Set<string>();
 
-  // 2) her satırı işle
   for (const item of lineItems) {
     const internalSku = await resolveInternalSku(channel, item.channel_ref);
     if (!internalSku) {
-      // Eşleştirme bulunamadı — bu ürün mapping tablosunda yok.
-      // Sessizce geçmiyoruz; ledger'a bir uyarı düşüyoruz ki fark edilsin.
       await sql`
         INSERT INTO stock_ledger (sku, change, reason, channel, ref_order_id, note)
         VALUES (${item.channel_ref}, 0, 'correction', ${channel}, ${channelOrderId},
@@ -147,22 +142,51 @@ export async function processOrder(
       continue;
     }
 
+    // satılan ürünün adı
+    const soldName = await getProductName(internalSku);
+
+    // düşecek bileşenleri hesapla, ÖNCEKİ stokları not al
     const physicals = await explodeToPhysical(internalSku, item.quantity);
+    const compLines: string[] = [];
+    // etkilenecek paketlerin ÖNCEKİ satılabilir adetleri (bileşen düşmeden önce)
+    const affectedBundles = await bundlesUsing(physicals.map(p => p.sku));
+    const beforeBundle = new Map<string, number>();
+    for (const b of affectedBundles) beforeBundle.set(b, await getRawAvailable(b));
+
+    // stoğu düş + bileşen satırlarını hazırla
     for (const p of physicals) {
+      const before = await getPhysicalStock(p.sku);
+      const after = before - p.amount;
       await sql`
         UPDATE products SET physical_stock = physical_stock - ${p.amount}
         WHERE sku = ${p.sku} AND type = 'single'
       `;
-      await sql`
-        INSERT INTO stock_ledger (sku, change, reason, channel, ref_order_id, note)
-        VALUES (${p.sku}, ${-p.amount}, 'order', ${channel}, ${channelOrderId},
-                ${'satış: ' + internalSku + ' x' + item.quantity})
-      `;
+      const nm = await getProductName(p.sku);
+      compLines.push(`${nm} ${-p.amount} (${before}→${after})`);
       changed.add(p.sku);
     }
+
+    // etkilenen paketlerin YENİ satılabilir adetleri
+    const bundleLines: string[] = [];
+    for (const b of affectedBundles) {
+      const bnm = await getProductName(b);
+      const bBefore = beforeBundle.get(b) ?? 0;
+      const bAfter = await getRawAvailable(b);
+      if (bBefore !== bAfter) bundleLines.push(`${bnm} ${bBefore}→${bAfter}`);
+    }
+
+    // TEK ÖZET NOT
+    let note = `${soldName} satıldı (${item.quantity} adet).`;
+    if (compLines.length) note += ` Bileşen düşüşü: ${compLines.join(', ')}.`;
+    if (bundleLines.length) note += ` Etkilenen paketler: ${bundleLines.join(', ')}.`;
+
+    // özet satır — sku olarak satılan ürünü, change olarak satılan adedi yaz
+    await sql`
+      INSERT INTO stock_ledger (sku, change, reason, channel, ref_order_id, note)
+      VALUES (${internalSku}, ${-item.quantity}, 'order', ${channel}, ${channelOrderId}, ${note})
+    `;
   }
 
-  // 3) siparişi işlendi olarak işaretle
   await sql`
     INSERT INTO orders_processed (channel, channel_order_id, payload)
     VALUES (${channel}, ${channelOrderId}, ${JSON.stringify(rawPayload ?? null)})
@@ -170,6 +194,23 @@ export async function processOrder(
   `;
 
   return { processed: true, changedPhysicalSkus: Array.from(changed) };
+}
+
+// Ürün adını getirir (not için)
+async function getProductName(sku: string): Promise<string> {
+  const r = await sql`SELECT name FROM products WHERE sku = ${sku}` as { name: string }[];
+  return r.length ? r[0].name : sku;
+}
+
+// Verilen bileşenleri içeren tüm paket SKU'larını döndürür
+async function bundlesUsing(componentSkus: string[]): Promise<string[]> {
+  if (componentSkus.length === 0) return [];
+  const set = new Set<string>();
+  for (const c of componentSkus) {
+    const rows = await sql`SELECT bundle_sku FROM bundle_components WHERE component_sku = ${c}` as { bundle_sku: string }[];
+    for (const r of rows) set.add(r.bundle_sku);
+  }
+  return Array.from(set);
 }
 
 // ------------------------------------------------------------
