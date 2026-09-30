@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback } from 'react';
 interface Product {
   sku: string; name: string; type: 'single' | 'bundle';
   physical_stock: number | null; safety_margin: number;
-  raw_available: number; sellable: number;
+  raw_available: number; sellable: number; image_url: string | null;
 }
 interface LedgerRow {
   id: number; sku: string; change: number; reason: string;
@@ -136,7 +136,7 @@ export default function Panel() {
 
           <GroupH label="Kanallar" open={openGroups.kanal} onClick={() => tg('kanal')} />
           {openGroups.kanal && <>
-            <div className="chan"><span className="cdot" style={{ background: '#7d9028' }} />İkas</div>
+            <div className="chan"><span className="cdot" style={{ background: '#7d9028' }} />ikas</div>
             <div className="chan"><span className="cdot" style={{ background: '#f27a1a' }} />Trendyol</div>
             <div className="chan"><span className="cdot" style={{ background: '#ff6000' }} />Hepsiburada</div>
           </>}
@@ -156,16 +156,7 @@ export default function Panel() {
           <button className="btn" onClick={load}><Ic n="refresh" /><span>Yenile</span></button>
         </div>
 
-        {!isLedger && (
-          <div className="tabs">
-            {tabs.map(t => (
-              <button key={t.key} className={'tab' + (view === t.key ? ' on' : '')} onClick={() => setView(t.key)}>
-                <Ic n={t.icon} /><span>{t.label}</span>
-                {t.key === 'low' && lowStock > 0 && <span className="tbadge">{lowStock}</span>}
-              </button>
-            ))}
-          </div>
-        )}
+        
 
         <div className="section-top">
           <h2 className="section-h">{isLedger ? 'Stok hareketleri' : 'Tüm ürünler'}</h2>
@@ -257,7 +248,10 @@ function ProductGroup({ title, rows, editing, editVal, saving, setEditing, setEd
               const st = statusOf(p.sellable);
               return (
                 <tr key={p.sku}>
-                  <td><div className="pname">{p.name}</div><div className="mono muted">{p.sku}</div></td>
+                  <td><div className="prodcell">
+                    {p.image_url ? <img src={p.image_url} alt="" className="thumb" loading="lazy" /> : <span className="thumb ph">{p.name.charAt(0)}</span>}
+                    <div className="pcol"><div className="pname">{p.name}</div><div className="mono muted">{p.sku}</div></div>
+                  </div></td>
                   <td><span className={'tag tag-' + p.type}>{p.type === 'bundle' ? 'Paket' : 'Tekil'}</span></td>
                   <td className="r num">{p.type === 'bundle' ? <span className="dash">—</span> : p.physical_stock}</td>
                   <td className="r num"><span className={p.sellable <= 5 ? 'v-low' : ''}>{p.sellable}</span></td>
@@ -426,12 +420,16 @@ svg { width:1em; height:1em; display:block; }
 .gh-title { font-size:15px; font-weight:600; }
 .gh-count { font-size:12px; color:var(--sec); background:#f3f2ef; min-width:22px; height:22px; padding:0 8px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-weight:600; }
 .tscroll { width:100%; overflow-x:auto; }
-table { width:100%; border-collapse:collapse; min-width:720px; }
+table { width:100%; border-collapse:collapse; min-width:760px; }
 th { text-align:left; font-size:12px; color:var(--sec); font-weight:550; padding:11px 20px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:#fafaf8; }
 th.r,td.r { text-align:right; }
 td { padding:14px 20px; border-bottom:1px solid #f3f1ed; font-size:14px; vertical-align:middle; }
 tbody tr:last-child td { border-bottom:none; }
 tbody tr { transition:background .1s; } tbody tr:hover { background:#fafaf8; }
+.prodcell { display:flex; align-items:center; gap:12px; }
+.thumb { width:40px; height:40px; border-radius:9px; object-fit:cover; flex-shrink:0; background:#f4f3f0; border:1px solid var(--line); }
+.thumb.ph { display:grid; place-items:center; font-size:15px; font-weight:600; color:var(--olive-d); background:var(--olive-bg); border:none; }
+.pcol { min-width:0; }
 .pname { font-weight:550; }
 .mono { font-variant-numeric:tabular-nums; font-family:ui-monospace,'SF Mono',monospace; font-size:11.5px; }
 .muted { color:var(--mut); }
