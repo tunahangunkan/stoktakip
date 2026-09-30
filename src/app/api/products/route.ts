@@ -8,7 +8,7 @@ import { sql } from '../../../core/db';
 export async function GET() {
   try {
     const products = (await sql`
-      SELECT sku, name, type, physical_stock, safety_margin
+      SELECT sku, name, type, physical_stock, safety_margin, image_url
       FROM products ORDER BY type DESC, name ASC
     `) as any[];
 
@@ -49,6 +49,7 @@ export async function GET() {
         type: p.type,
         physical_stock: p.physical_stock,
         safety_margin: p.safety_margin,
+        image_url: p.image_url,
         raw_available: raw,
         sellable,
       };
