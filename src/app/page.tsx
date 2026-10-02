@@ -217,19 +217,31 @@ export default function Panel() {
         ) : isLedger ? (
           <div className="gcard">
             <div className="tscroll">
-              <table>
-                <thead><tr><th>Zaman</th><th>Barkod</th><th>Sebep</th><th className="r">Değişim</th><th>Not</th></tr></thead>
+              <table className="ledger-t">
+                <thead><tr><th>Zaman</th><th>Barkod</th><th>İşlem</th><th className="r">Değişim</th><th>Detay</th></tr></thead>
                 <tbody>
                   {ledger.length === 0 && <tr><td colSpan={5} className="empty-c">Henüz hareket yok.</td></tr>}
-                  {ledger.map(l => (
+                  {ledger.map(l => {
+                    const parsed = parseNote(l.note || '');
+                    return (
                     <tr key={l.id}>
-                      <td className="muted">{fmtDate(l.created_at)}</td>
+                      <td className="muted nowrap">{fmtDate(l.created_at)}</td>
                       <td className="mono">{l.sku}</td>
-                      <td><span className={'pill pill-' + l.reason}>{reasonTr(l.reason)}</span></td>
+                      <td>
+                        <div className="reason-cell">
+                          <span className={'pill pill-' + l.reason}>{reasonTr(l.reason)}</span>
+                          {l.channel && <span className={'chpill ch-' + l.channel}><span className="chpill-dot" />{chName(l.channel)}</span>}
+                        </div>
+                      </td>
                       <td className={'r num ' + (l.change < 0 ? 'neg' : l.change > 0 ? 'pos' : '')}>{l.change > 0 ? '+' : ''}{l.change}</td>
-                      <td className="note">{l.note}</td>
+                      <td className="detail-cell">
+                        {parsed.head && <div className="d-head">{parsed.head}</div>}
+                        {parsed.comp && <div className="d-sub"><span className="d-lbl">Bileşen:</span> {parsed.comp}</div>}
+                        {parsed.bundle && <div className="d-sub"><span className="d-lbl">Paketler:</span> {parsed.bundle}</div>}
+                        {!parsed.head && !parsed.comp && !parsed.bundle && <div className="d-head">{l.note}</div>}
+                      </td>
                     </tr>
-                  ))}
+                  );})}
                 </tbody>
               </table>
             </div>
@@ -395,6 +407,29 @@ function Stat({ icon, label, value, danger }: { icon: string; label: string; val
 }
 function reasonTr(r: string) { return ({ order: 'Satış', manual: 'Manuel', restock: 'Mal girişi', correction: 'Düzeltme' } as Record<string, string>)[r] || r; }
 
+function chName(c: string) { return ({ ikas: 'ikas', trendyol: 'Trendyol', hb: 'Hepsiburada' } as Record<string,string>)[c] || c; }
+
+// Not metnini parçalara ayır: başlık / bileşen / paket
+function parseNote(note: string): { head: string; comp: string; bundle: string } {
+  let head = note, comp = '', bundle = '';
+  const bi = note.indexOf('Bileşen düşüşü:');
+  const pi = note.indexOf('Etkilenen paketler:');
+  if (bi >= 0) {
+    head = note.slice(0, bi).trim().replace(/\.$/, '');
+    const rest = note.slice(bi + 'Bileşen düşüşü:'.length);
+    if (pi >= 0) {
+      comp = note.slice(bi + 'Bileşen düşüşü:'.length, pi).trim().replace(/\.$/, '');
+      bundle = note.slice(pi + 'Etkilenen paketler:'.length).trim().replace(/\.$/, '');
+    } else {
+      comp = rest.trim().replace(/\.$/, '');
+    }
+  } else if (pi >= 0) {
+    head = note.slice(0, pi).trim().replace(/\.$/, '');
+    bundle = note.slice(pi + 'Etkilenen paketler:'.length).trim().replace(/\.$/, '');
+  }
+  return { head, comp, bundle };
+}
+
 function Ic({ n }: { n: string }) {
   const p: Record<string, JSX.Element> = {
     grid: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,
@@ -551,6 +586,16 @@ tbody tr { transition:background .1s; } tbody tr:hover { background:#fafaf8; }
 .btn-t { background:none; border:none; color:var(--mut); font-size:12.5px; cursor:pointer; padding:8px; }
 .empty-c { text-align:center; color:var(--mut); padding:44px !important; }
 .note { color:var(--sec); font-size:12.5px; max-width:400px; }
+.reason-cell { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.chpill { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:3px 9px; border-radius:12px; background:#f3f2ef; color:var(--sec); }
+.chpill-dot { width:6px; height:6px; border-radius:2px; }
+.ch-ikas .chpill-dot { background:#7d9028; } .ch-trendyol .chpill-dot { background:#f27a1a; } .ch-hb .chpill-dot { background:#ff6000; }
+.detail-cell { max-width:560px; }
+.d-head { font-weight:550; font-size:13.5px; margin-bottom:3px; }
+.d-sub { font-size:12.5px; color:var(--mut); line-height:1.45; }
+.d-lbl { font-weight:600; color:var(--sec); }
+.nowrap { white-space:nowrap; }
+.ledger-t { min-width:860px; }
 .neg { color:var(--neg); } .pos { color:var(--pos); }
 .pill { font-size:11.5px; padding:3px 10px; border-radius:12px; font-weight:600; }
 .pill-order { background:var(--warn-bg); color:var(--warn); }
