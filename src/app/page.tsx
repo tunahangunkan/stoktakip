@@ -15,7 +15,7 @@ interface LedgerRow {
   id: number; sku: string; change: number; reason: string;
   channel: string | null; ref_order_id: string | null; note: string | null; created_at: string;
 }
-type View = 'all' | 'single' | 'bundle' | 'low' | 'ledger';
+type View = 'all' | 'single' | 'bundle' | 'low' | 'ledger' | 'tools';
 
 function statusOf(sellable: number): { key: string; label: string } {
   if (sellable <= 5) return { key: 'crit', label: 'Kritik' };
@@ -158,7 +158,10 @@ export default function Panel() {
           </>}
 
           <GroupH label="Kayıtlar" open={openGroups.kayit} onClick={() => tg('kayit')} />
-          {openGroups.kayit && <NavItem icon="swap" label="Hareket Geçmişi" active={view === 'ledger'} onClick={() => go('ledger')} />}
+          {openGroups.kayit && <>
+            <NavItem icon="swap" label="Hareket Geçmişi" active={view === 'ledger'} onClick={() => go('ledger')} />
+            <NavItem icon="download" label="Toplu İşlem" active={view === 'tools'} onClick={() => go('tools')} />
+          </>}
 
           <GroupH label="Kanallar" open={openGroups.kanal} onClick={() => tg('kanal')} />
           {openGroups.kanal && <>
@@ -171,38 +174,48 @@ export default function Panel() {
 
       {/* MAIN */}
       <main className="main">
-        <div className="titlerow">
-          {isLedger ? <h1>Hareket Geçmişi</h1> : <div />}
-          <div className="head-btns">
-            {!isLedger && <>
-              <button className="btn" onClick={exportExcel}><Ic n="download" /><span>Excel İndir</span></button>
-              <label className="btn"><Ic n="upload" /><span>Excel Yükle</span>
-                <input type="file" accept=".xlsx,.xls" hidden onChange={onFilePick} />
-              </label>
-            </>}
-            <button className="btn" onClick={load}><Ic n="refresh" /><span>Yenile</span></button>
-          </div>
-        </div>
+        
 
         
 
         
 
         {/* özet kartları */}
-        {!isLedger && (
+        {!isLedger && view !== 'tools' && (
           <section className="stats">
             <Stat icon="grid" label="Toplam Ürün" value={total} />
             <Stat icon="box" label="Tekil Ürün" value={singles.length} />
             <Stat icon="stack" label="Paket" value={bundles.length} />
             <Stat icon="alert" label="Düşük Stok" value={lowStock} danger={lowStock > 0} />
+            <div className="toolcol">
+              <div className="searchbox sb-tool">
+                <Ic n="search" /><input placeholder="Ürün ara…" value={q} onChange={e => setQ(e.target.value)} />
+              </div>
+              <button className="btn tool-refresh" onClick={load}><Ic n="refresh" /><span>Yenile</span></button>
+            </div>
           </section>
         )}
 
         {loading ? (
           <div className="gcard center"><div className="spin" /><span>Veriler yükleniyor…</span></div>
+        ) : view === 'tools' ? (
+          <div className="gcard">
+            <div className="gcard-head"><div className="gh-l"><span className="gh-title">Toplu İşlem</span></div></div>
+            <div style={{padding:'22px'}}>
+              <div className="tool-card">
+                <div className="tool-ic"><Ic n="download" /></div>
+                <div className="tool-txt"><strong>Excel İndir</strong><span>Tüm ürünleri ve güncel stokları Excel olarak indir.</span></div>
+                <button className="btn" onClick={exportExcel}><Ic n="download" /><span>İndir</span></button>
+              </div>
+              <div className="tool-card">
+                <div className="tool-ic"><Ic n="upload" /></div>
+                <div className="tool-txt"><strong>Excel Yükle</strong><span>Düzenlediğin Excel'i yükle, önizleyip uygula.</span></div>
+                <label className="btn"><Ic n="upload" /><span>Dosya Seç</span><input type="file" accept=".xlsx,.xls" hidden onChange={onFilePick} /></label>
+              </div>
+            </div>
+          </div>
         ) : isLedger ? (
           <div className="gcard">
-            <div className="gcard-head"><div className="gh-l"><span className="gh-title">Stok hareketleri</span><span className="gh-count">{ledger.length}</span></div></div>
             <div className="tscroll">
               <table>
                 <thead><tr><th>Zaman</th><th>Barkod</th><th>Sebep</th><th className="r">Değişim</th><th>Not</th></tr></thead>
@@ -468,6 +481,12 @@ svg { width:1em; height:1em; display:block; }
 .btn.sm { height:32px; padding:0 12px; font-size:12.5px; }
 .btn.ghost { box-shadow:none; }
 .head-btns { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.tool-card { display:flex; align-items:center; gap:16px; padding:18px; border:1px solid var(--line); border-radius:12px; margin-bottom:12px; }
+.tool-card:last-child { margin-bottom:0; }
+.tool-ic { width:44px; height:44px; border-radius:11px; background:#f4f3f0; color:var(--sec); display:grid; place-items:center; font-size:20px; flex-shrink:0; }
+.tool-txt { flex:1; display:flex; flex-direction:column; gap:2px; }
+.tool-txt strong { font-size:15px; font-weight:620; }
+.tool-txt span { font-size:13px; color:var(--mut); }
 .btn label,label.btn { cursor:pointer; }
 .tabs { display:flex; gap:2px; margin-top:18px; border-bottom:1px solid var(--line); }
 .tab { display:flex; align-items:center; gap:7px; border:none; background:none; padding:11px 13px; font-size:14px; font-weight:500; color:var(--sec); cursor:pointer; margin-bottom:-1px; }
@@ -481,7 +500,10 @@ svg { width:1em; height:1em; display:block; }
 .searchbox svg { font-size:16px; color:var(--mut); }
 .searchbox input { border:none; outline:none; font-size:13.5px; width:100%; background:none; color:var(--ink); }
 
-.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:20px 0; }
+.stats { display:grid; grid-template-columns:repeat(4,1fr) 260px; gap:14px; margin:20px 0; align-items:stretch; }
+.toolcol { display:flex; flex-direction:column; gap:8px; }
+.sb-tool { width:100%; flex:1; }
+.tool-refresh { width:100%; height:42px; justify-content:center; }
 .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; box-shadow:var(--sh-c); }
 .stat-top { display:flex; align-items:center; gap:9px; margin-bottom:10px; }
 .stat-ic { width:30px; height:30px; border-radius:8px; background:#f3f2ef; color:var(--sec); display:grid; place-items:center; font-size:16px; }
@@ -561,6 +583,8 @@ table.inner th { padding:10px 15px; } table.inner td { padding:11px 15px; }
   .section-top { flex-direction:column; align-items:stretch; gap:10px; }
   .searchbox { width:auto; }
   .stats { grid-template-columns:repeat(2,1fr); gap:12px; }
+  .toolcol { grid-column:1 / -1; flex-direction:row; }
+  .sb-tool { flex:1; } .tool-refresh { width:auto; padding:0 16px; }
 }
 @media (max-width:480px) {
   .btn span { display:none; } .btn { padding:0 12px; }
