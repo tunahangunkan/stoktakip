@@ -120,10 +120,8 @@ export async function processOrder(
   channel: Channel,
   channelOrderId: string,
   lineItems: OrderLineItem[],
-  rawPayload?: unknown,
-  logChannel?: string
+  rawPayload?: unknown
 ): Promise<{ processed: boolean; changedPhysicalSkus: string[] }> {
-  const lc = (logChannel || channel) as Channel;
   // 1) idempotency
   const existing = await sql`
     SELECT 1 FROM orders_processed
@@ -185,7 +183,7 @@ export async function processOrder(
     // özet satır — sku olarak satılan ürünü, change olarak satılan adedi yaz
     await sql`
       INSERT INTO stock_ledger (sku, change, reason, channel, ref_order_id, note)
-      VALUES (${internalSku}, ${-item.quantity}, 'order', ${lc}, ${channelOrderId}, ${note})
+      VALUES (${internalSku}, ${-item.quantity}, 'order', ${channel}, ${channelOrderId}, ${note})
     `;
   }
 
