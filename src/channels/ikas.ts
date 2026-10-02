@@ -6,13 +6,13 @@
 //  Doküman: https://ikas.dev  /  https://builders.ikas.com
 // ============================================================
 import { ChannelConnector, NormalizedOrder, StockPushItem, PushResult } from './types';
- 
+
 const IKAS_API = 'https://api.myikas.com/api/v1/admin/graphql';
 const IKAS_TOKEN_URL = 'https://api.myikas.com/api/admin/oauth/token';
- 
+
 // --- OAuth token (basit önbellek) ---
 let cachedToken: { value: string; expiresAt: number } | null = null;
- 
+
 async function getToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt - 60_000) {
     return cachedToken.value;
@@ -34,7 +34,7 @@ async function getToken(): Promise<string> {
   };
   return cachedToken.value;
 }
- 
+
 async function gql(query: string, variables: Record<string, unknown>): Promise<any> {
   const token = await getToken();
   const res = await fetch(IKAS_API, {
@@ -46,10 +46,10 @@ async function gql(query: string, variables: Record<string, unknown>): Promise<a
   if (json.errors) throw new Error('ikas gql hata: ' + JSON.stringify(json.errors));
   return json.data;
 }
- 
+
 export const ikasConnector: ChannelConnector = {
   name: 'ikas',
- 
+
   async parseWebhook(_headers, body): Promise<NormalizedOrder | null> {
     // İkas webhook yapısı: { merchantId, scope, data: "<JSON string>", ... }
     // Sipariş verisi 'data' alanında JSON STRING olarak gelir; önce onu parse ediyoruz.
@@ -61,7 +61,7 @@ export const ikasConnector: ChannelConnector = {
       return null;
     }
     if (!order?.id) return null;
- 
+
     // Sipariş satırları: orderLineItems[]. Her satırda variant.barcodeList[0] = barkod.
     // Eşleştirmeyi BARKOD üzerinden yapıyoruz (channel_ref = barkod).
     const lines = order.orderLineItems ?? [];
@@ -69,16 +69,21 @@ export const ikasConnector: ChannelConnector = {
       const barcode = li.variant?.barcodeList?.[0] ?? li.variant?.id ?? '';
       return { channel_ref: String(barcode), quantity: li.quantity ?? 1 };
     }).filter((it: any) => it.channel_ref);
- 
+
     // Sipariş kimliği: orderNumber tercih (insan-okur), yoksa id.
     const orderId = order.orderNumber ?? order.id;
-    return { channelOrderId: String(orderId), lineItems: items, raw: order };
+    // Gerçek satış kanalını payload host'undan çıkar
+    const host = String(order.host || '').toLowerCase();
+    let realChannel = 'ikas';
+    if (host.includes('trendyol')) realChannel = 'trendyol';
+    else if (host.includes('hepsiburada')) realChannel = 'hb';
+    return { channelOrderId: String(orderId), lineItems: items, raw: order, realChannel };
   },
- 
+
   async pushStock(items: StockPushItem[]): Promise<PushResult> {
     const locationId = process.env.IKAS_STOCK_LOCATION_ID || '';
     if (!locationId) return { ok: false, error: 'IKAS_STOCK_LOCATION_ID tanımsız' };
- 
+
     // İkas stok güncelleme: saveProductStockLocations mutation'ı.
     // ProductStockLocationInput: { productId, variantId, stockCount, stockLocationId } (hepsi zorunlu).
     // channelRef formatı: "productId:variantId" (channel_listings'te böyle saklanıyor).
@@ -95,12 +100,12 @@ export const ikasConnector: ChannelConnector = {
         stockLocationId: locationId,
       });
     }
- 
+
     const mutation = `
       mutation SaveStock($input: SaveStockLocationsInput!) {
         saveProductStockLocations(input: $input)
       }`;
- 
+
     try {
       const data = await gql(mutation, {
         input: { productStockLocationInputs },
@@ -111,7 +116,7 @@ export const ikasConnector: ChannelConnector = {
       return { ok: false, error: String(e) };
     }
   },
- 
+
   async fetchRecentOrders(sinceMinutes: number): Promise<NormalizedOrder[]> {
     const since = new Date(Date.now() - sinceMinutes * 60_000).toISOString();
     const query = `
@@ -132,7 +137,7 @@ export const ikasConnector: ChannelConnector = {
     }));
   },
 };
- 
+
 // ------------------------------------------------------------
 // WEBHOOK KAYDI — İkas'a "sipariş oluşturulunca bana haber ver" der.
 // Panelde webhook ekranı olmadığı için bunu API ile kaydediyoruz.
@@ -149,8 +154,7 @@ export async function registerIkasWebhook(endpoint: string): Promise<any> {
     }`;
   return await gql(mutation, {});
 }
- 
+
 export async function listIkasWebhooks(): Promise<any> {
   return await gql(`{ listWebhook { id scope endpoint deleted } }`, {});
 }
- 
