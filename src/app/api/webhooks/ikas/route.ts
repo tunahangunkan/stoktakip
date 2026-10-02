@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('IKAS_WEBHOOK_PARSED:', JSON.stringify(order));
-    const result = await handleOrder('ikas', order.channelOrderId, order.lineItems, order.raw, (order as any).realChannel);
+    const result = await handleOrder('ikas', order.channelOrderId, order.lineItems, order.raw);
     console.log('IKAS_WEBHOOK_RESULT:', JSON.stringify(result));
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (e) {
