@@ -88,15 +88,13 @@ export async function handleOrder(
   channel: Channel,
   channelOrderId: string,
   lineItems: { channel_ref: string; quantity: number }[],
-  raw?: unknown,
-  logChannel?: string
+  raw?: unknown
 ): Promise<{ processed: boolean; pushedSkus: string[] }> {
   const { processed, changedPhysicalSkus } = await processOrder(
     channel,
     channelOrderId,
     lineItems,
-    raw,
-    logChannel
+    raw
   );
   if (!processed) return { processed: false, pushedSkus: [] };
 
