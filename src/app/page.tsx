@@ -29,6 +29,7 @@ export default function Panel() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [view, setView] = useState<View>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'ok' | 'warn' | 'crit'>('all');
   const [editing, setEditing] = useState<string | null>(null);
   const [editVal, setEditVal] = useState('');
   const [saving, setSaving] = useState(false);
@@ -106,7 +107,8 @@ export default function Panel() {
     if (view === 'low') return p.sellable <= 5;
     return true;
   };
-  const visible = products.filter(p => inView(p) && match(p));
+  const matchStatus = (p: Product) => statusFilter === 'all' || statusOf(p.sellable).key === statusFilter;
+  const visible = products.filter(p => inView(p) && match(p) && matchStatus(p));
   const visSingles = visible.filter(p => p.type === 'single');
   const visBundles = visible.filter(p => p.type === 'bundle');
 
@@ -251,17 +253,20 @@ export default function Panel() {
             {view === 'all' || view === 'low' ? (
               visible.length > 0
                 ? <ProductGroup title={view==='low' ? 'Düşük Stok' : 'Tüm Ürünler'} rows={visible} editing={editing} editVal={editVal} saving={saving}
-                    setEditing={setEditing} setEditVal={setEditVal} saveStock={saveStock} openRecipe={openRecipe} />
+                    setEditing={setEditing} setEditVal={setEditVal} saveStock={saveStock} openRecipe={openRecipe}
+                    statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
                 : <div className="gcard center"><span>Eşleşen ürün yok.</span></div>
             ) : (
               <>
                 {view === 'single' && (visSingles.length > 0
                   ? <ProductGroup title="Tekil Ürünler" rows={visSingles} editing={editing} editVal={editVal} saving={saving}
-                      setEditing={setEditing} setEditVal={setEditVal} saveStock={saveStock} openRecipe={openRecipe} />
+                      setEditing={setEditing} setEditVal={setEditVal} saveStock={saveStock} openRecipe={openRecipe}
+                      statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
                   : <div className="gcard center"><span>Eşleşen ürün yok.</span></div>)}
                 {view === 'bundle' && (visBundles.length > 0
                   ? <ProductGroup title="Paketler" rows={visBundles} editing={editing} editVal={editVal} saving={saving}
-                      setEditing={setEditing} setEditVal={setEditVal} saveStock={saveStock} openRecipe={openRecipe} />
+                      setEditing={setEditing} setEditVal={setEditVal} saveStock={saveStock} openRecipe={openRecipe}
+                      statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
                   : <div className="gcard center"><span>Eşleşen ürün yok.</span></div>)}
               </>
             )}
@@ -334,25 +339,52 @@ export default function Panel() {
   );
 }
 
-function ProductGroup({ title, rows, editing, editVal, saving, setEditing, setEditVal, saveStock, openRecipe }: any) {
+function ProductGroup({ title, rows, editing, editVal, saving, setEditing, setEditVal, saveStock, openRecipe, statusFilter, setStatusFilter }: any) {
+  const [filterOpen, setFilterOpen] = useState(false);
+  const opts: { key: string; label: string }[] = [
+    { key: 'all', label: 'Tümü' },
+    { key: 'ok', label: 'Yeterli' },
+    { key: 'warn', label: 'Az' },
+    { key: 'crit', label: 'Kritik' },
+  ];
+  const active = opts.find(o => o.key === statusFilter) || opts[0];
   return (
     <div className="gcard">
       <div className="gcard-head">
         <div className="gh-l"><span className="gh-title">{title}</span><span className="gh-count">{rows.length}</span></div>
-        <button className="btn sm ghost"><Ic n="filter" /><span>Filtrele</span></button>
+        <div className="filter-wrap">
+          <button className={'btn sm ghost' + (statusFilter !== 'all' ? ' fon' : '')} onClick={() => setFilterOpen((o: boolean) => !o)}>
+            <Ic n="filter" /><span>{statusFilter === 'all' ? 'Filtrele' : 'Durum: ' + active.label}</span>
+          </button>
+          {filterOpen && <>
+            <div className="filter-scrim" onClick={() => setFilterOpen(false)} />
+            <div className="filter-pop">
+              <div className="fp-head">Duruma göre</div>
+              {opts.map(o => (
+                <button key={o.key} className={'fp-item' + (statusFilter === o.key ? ' on' : '')}
+                  onClick={() => { setStatusFilter(o.key); setFilterOpen(false); }}>
+                  {o.key !== 'all' && <span className={'fp-dot st-' + o.key} />}
+                  <span className="fp-lbl">{o.label}</span>
+                  {statusFilter === o.key && <Ic n="check" />}
+                </button>
+              ))}
+            </div>
+          </>}
+        </div>
       </div>
       <div className="tscroll">
         <table>
-          <thead><tr><th>Ürün</th><th>Tip</th><th className="r">Stok</th><th>Durum</th><th className="r"></th></tr></thead>
+          <thead><tr><th>Ürün</th><th>Barkod</th><th>Tip</th><th className="r">Stok</th><th>Durum</th><th className="r"></th></tr></thead>
           <tbody>
             {rows.map((p: Product) => {
               const st = statusOf(p.sellable);
               return (
                 <tr key={p.sku}>
                   <td><div className="prodcell">
-                    {p.image_url ? <img src={p.image_url} alt="" className="thumb" loading="lazy" /> : <span className="thumb ph">{p.name.charAt(0)}</span>}
-                    <div className="pcol"><div className="pname">{p.name}</div><div className="mono muted">{p.sku}</div></div>
+                    <Thumb url={p.image_url} name={p.name} />
+                    <div className="pcol"><div className="pname">{p.name}</div></div>
                   </div></td>
+                  <td className="mono muted">{p.sku}</td>
                   <td><span className={'tag tag-' + p.type}>{p.type === 'bundle' ? 'Paket' : 'Tekil'}</span></td>
                   <td className="r num"><span className={p.sellable <= 5 ? 'v-low' : ''}>{p.sellable}</span></td>
                   <td><span className={'st st-' + st.key}>{st.label}</span></td>
@@ -380,6 +412,15 @@ function ProductGroup({ title, rows, editing, editVal, saving, setEditing, setEd
       </div>
     </div>
   );
+}
+
+// Görsel: image_url birden çok URL'yi ';' ile birleşik tutabiliyor → ilkini al.
+// Yüklenmezse (ölü link / görsel yok) harf placeholder'a düş.
+function Thumb({ url, name }: { url: string | null; name: string }) {
+  const [err, setErr] = useState(false);
+  const src = url ? url.split(';')[0].trim() : '';
+  if (!src || err) return <span className="thumb ph">{name.charAt(0)}</span>;
+  return <img src={src} alt="" className="thumb" loading="lazy" onError={() => setErr(true)} />;
 }
 
 function GroupH({ label, open, onClick }: { label: string; open: boolean; onClick: () => void }) {
@@ -555,6 +596,19 @@ svg { width:1em; height:1em; display:block; }
 .gh-l { display:flex; align-items:center; gap:10px; }
 .gh-title { font-size:15px; font-weight:600; }
 .gh-count { font-size:12px; color:var(--sec); background:#f3f2ef; min-width:22px; height:22px; padding:0 8px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-weight:600; }
+.filter-wrap { position:relative; }
+.btn.ghost.fon { background:var(--olive-bg); border-color:#d5ddb8; color:var(--olive-d); box-shadow:none; }
+.btn.ghost.fon svg { color:var(--olive-d); }
+.filter-scrim { position:fixed; inset:0; z-index:20; }
+.filter-pop { position:absolute; right:0; top:calc(100% + 6px); z-index:21; background:var(--card); border:1px solid var(--line); border-radius:11px; box-shadow:0 10px 30px rgba(26,26,24,.14); padding:6px; min-width:186px; }
+.fp-head { font-size:11px; font-weight:600; color:var(--mut); padding:7px 10px 5px; }
+.fp-item { display:flex; align-items:center; gap:9px; width:100%; border:none; background:none; cursor:pointer; padding:8px 10px; border-radius:8px; font-size:13.5px; color:var(--ink); text-align:left; }
+.fp-item:hover { background:#f4f3f0; }
+.fp-item.on { font-weight:600; }
+.fp-item svg { font-size:15px; color:var(--olive); }
+.fp-lbl { flex:1; }
+.fp-dot { width:9px; height:9px; border-radius:3px; flex-shrink:0; }
+.fp-dot.st-ok { background:#7d9028; } .fp-dot.st-warn { background:#d39a1f; } .fp-dot.st-crit { background:#c0562e; }
 .tscroll { width:100%; overflow-x:auto; }
 table { width:100%; border-collapse:collapse; min-width:760px; }
 th { text-align:left; font-size:12px; color:var(--sec); font-weight:550; padding:11px 20px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:#fafaf8; }
