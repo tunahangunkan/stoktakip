@@ -7,8 +7,10 @@ import { sql } from '../../../core/db';
 
 export async function GET() {
   try {
+    // TÜM ürünleri çek (gizliler dahil) — BOM/stok haritası eksiksiz olsun.
+    // Gizli ürünler yalnızca listeden/sayımdan çıkarılır (aşağıda filtrelenir).
     const products = (await sql`
-      SELECT sku, name, type, physical_stock, safety_margin, image_url
+      SELECT sku, name, type, physical_stock, safety_margin, image_url, active
       FROM products ORDER BY type DESC, name ASC
     `) as any[];
 
@@ -40,7 +42,8 @@ export async function GET() {
       return min === Infinity ? 0 : min;
     }
 
-    const enriched = products.map((p) => {
+    // Gizli ürünleri (active=false) çıktıdan çıkar; stok haritası yukarıda tümünden kuruldu.
+    const enriched = products.filter((p) => p.active !== false).map((p) => {
       const raw = rawAvailable(p);
       const sellable = Math.max(0, raw - (p.safety_margin ?? 0));
       return {
